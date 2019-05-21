@@ -5,6 +5,10 @@ import com.rabbitmq.client.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 @Service
 public class BankService {
 
@@ -12,11 +16,12 @@ public class BankService {
     BankRepository bankRepository;
 
 
-    public  double addBalance(Double money){
+    public  boolean addBalance(Double money){
         Bank bank =new Bank();
+        bank.setId(UUID.randomUUID());
         bank.setBalance(money);
         bankRepository.save(bank);
-        return money;
+        return true;
 
     }
 
@@ -27,8 +32,17 @@ public class BankService {
         factory.setHost("localhost");
         Connection connection=factory.newConnection();
         Channel channel=connection.createChannel();
-        channel.queueDeclare(name, false, false, false, null);
+        //channel.queueDeclare(name, false, false, false, null);
+        Map<String, Object> args = new HashMap<String, Object>();
+        args.put("x-dead-letter-exchange", "dead_exchange");
+        args.put("x-message-ttl", 60000);
+        channel.queueDeclare(name, false, false, false, args);
+        channel.exchangeDeclare(name+"_exchange", "direct");;
+        channel.queueBind(name, name+"_exchange", "");
         channel.basicQos(1);
+
+
+
         System.out.println(" [x] Awaiting RPC requests from " + name);
 
         Object monitor = new Object();
